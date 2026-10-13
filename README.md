@@ -11,7 +11,7 @@ A lightweight, security-conscious REST gateway for routing notifications from mu
 ![Docker](https://img.shields.io/badge/Deploy-Docker-2496ED?logo=docker&logoColor=white)
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
 
-[**Quick start**](#-quick-start) · [**API reference**](#-api-reference) · [**Security**](#-security) · [**Documentation française**](docs/README.fr.md)
+[**Quick start**](#-quick-start) · [**API reference**](#-api-reference) · [**Security**](#-security) · [**Documentation française**](docs/README.fr.md) · [**Production checklist (FR)**](docs/PRODUCTION_CHECKLIST.fr.md)
 
 </div>
 
