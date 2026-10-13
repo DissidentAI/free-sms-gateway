@@ -2,6 +2,8 @@
 
 Passerelle de notifications SMS **auto-hébergée**, permettant à plusieurs applications et serveurs d'utiliser l'option **Notifications par SMS** d'un abonnement Free Mobile, sans distribuer la clé Free à chaque service.
 
+📋 **[Checklist de mise en production (GO/NO-GO)](PRODUCTION_CHECKLIST.fr.md)**
+
 > Projet communautaire non affilié à Free Mobile. Les SMS sont envoyés **uniquement sur le numéro de l'abonné** associé à la clé API, jamais à des destinataires arbitraires.
 
 ## Fonctionnalités
