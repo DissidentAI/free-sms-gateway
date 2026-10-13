@@ -14,6 +14,16 @@ Passerelle de notifications SMS **auto-hébergée**, permettant à plusieurs app
 - Worker d'envoi unique et tentatives contrôlées
 - Déploiement Docker isolé, lié à `127.0.0.1`
 
+## Fiabilité et exploitation
+
+- Toutes les tentatives sont enregistrées et prises en compte dans les quotas.
+- Les réponses incertaines (`5xx`, erreurs réseau) ne sont pas réessayées automatiquement.
+- Les alertes expirent après `ttl_seconds` (une heure par défaut) et la file est bornée.
+- `/readyz` détecte les incidents internes, sans promettre la réception du SMS.
+- Outils privés : `python scripts/ops.py stats`, `backup` et `acknowledge`.
+
+📘 [Guide d’exploitation et sauvegarde](OPERATIONS.fr.md) · [Checklist de mise en production](PRODUCTION_CHECKLIST.fr.md)
+
 ## Installation
 
 Activez **Notifications par SMS** dans votre Espace Abonné Free Mobile et récupérez votre identifiant et votre clé API.
