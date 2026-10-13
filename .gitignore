@@ -1,0 +1,21 @@
+# Credentials, local state and private configuration
+.env
+.env.*
+!.env.example
+*.sqlite
+*.sqlite3
+*.sqlite3-*
+*.db
+*.db-*
+*.log
+# Python tooling
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+.venv/
+venv/
+# Editors and operating systems
+.DS_Store
+.idea/
+.vscode/
