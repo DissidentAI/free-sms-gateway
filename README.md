@@ -22,8 +22,10 @@ A lightweight, security-conscious REST gateway for routing notifications from mu
 
 - 🔑 **Per-service bearer tokens** — keep the Free Mobile API key on one host.
 - 📥 **Persistent SQLite queue** — alerts survive normal restarts.
-- ⏱️ **Rate limiting & quotas** — global pacing, 24-hour delivery cap and hourly per-client quota.
+- ⏱️ **Rate limiting & quotas** — all SMS attempts are persisted and paced, with a 24-hour attempt quota.
 - ♻️ **Idempotency & deduplication** — collapse repeats by fingerprint and request ID.
+- ⌛ **Alert TTL and bounded backlog** — expired alerts are not sent; queue size and retention are configurable.
+- ❤️ **Readiness checks** — detect dead workers, stale backlogs and unresolved critical failures.
 - 🚨 **Prioritized delivery** — `critical` → `warning` → `info`.
 - 🛡️ **Conservative retries** — avoid automatic replay when transport outcome is uncertain.
 - 🐳 **Docker Compose** — non-root process, read-only root filesystem and localhost binding.
@@ -114,7 +116,8 @@ A `sent` status means that **Free's API accepted the request (HTTP 200)**, not t
 
 | Method | Endpoint | Purpose | Auth |
 | --- | --- | --- | --- |
-| `GET` | `/healthz` | Liveness check | None (private network only) |
+| `GET` | `/healthz` | HTTP liveness, not SMS delivery | None (private network only) |
+| `GET` | `/readyz` | Worker, SQLite, backlog and critical-failure readiness | None (private network only) |
 | `POST` | `/v1/alerts` | Enqueue a new alert | Per-client bearer token |
 | `GET` | `/v1/alerts/{id}` | Read own alert's status | Same per-client bearer token |
 
@@ -126,10 +129,11 @@ A `sent` status means that **Free's API accepted the request (HTTP 200)**, not t
 | `severity` | enum | No | `info`, `warning` (default), `critical` |
 | `fingerprint` | string | No | Stable event identifier for time-window deduplication |
 | `request_id` | string | No | 8–120 character idempotency identifier |
+| `ttl_seconds` | integer | No | 60–604800; defaults to 3600 (1 hour) |
 
-**Statuses:** `queued`, `sending`, `sent`, `failed`, `uncertain`.
+**Statuses:** `queued`, `sending`, `sent`, `failed`, `uncertain`, `expired`, `acknowledged`.
 
-**HTTP behavior:** `202` indicates an accepted **queue operation**, `401` invalid token, `429` per-client quota exceeded, `413` body too large and `422` invalid payload.
+**HTTP behavior:** `202` indicates an accepted **queue operation**, `401` invalid token, `429` per-client quota exceeded, `422` invalid payload, `503` pending queue full. Configure request-body size limits on your private reverse proxy.
 
 ## ⚙️ Configuration
 
@@ -138,13 +142,18 @@ A `sent` status means that **Free's API accepted the request (HTTP 200)**, not t
 | `FREE_USER` | Free Mobile account login | Required |
 | `FREE_API_KEY` | Free Mobile SMS API credential | Required |
 | `CLIENT_KEYS` | JSON map of client names → bearer tokens | Required |
-| `MIN_SMS_INTERVAL_SEC` | Minimum spacing between accepted messages | `60` |
-| `DAILY_SMS_LIMIT` | Accepted messages in a rolling 24-hour window | `100` |
+| `MIN_SMS_INTERVAL_SEC` | Minimum spacing between all attempts (even rejected) | `60` |
+| `DAILY_SMS_LIMIT` | Maximum attempts in a rolling 24-hour window | `100` |
 | `CLIENT_HOURLY_LIMIT` | Enqueued events per client per hour | `20` |
 | `DEDUP_WINDOW_SEC` | Fingerprint deduplication window | `300` |
 | `DB_PATH` | SQLite file path | `/data/alerts.sqlite3` |
+| `DEFAULT_ALERT_TTL_SEC` | Default expiry of unsent alerts | `3600` |
+| `MAX_PENDING_ALERTS` | Combined queued/sending capacity | `1000` |
+| `RETENTION_DAYS` | Retention for terminal outcomes; unresolved uncertain events remain until review | `30` |
+| `MAX_BACKLOG_AGE_SEC` | Age threshold for `/readyz` failure | `600` |
+| `MAX_SEND_ATTEMPTS` | Maximum rate-limit retries per alert | `6` |
 
-Free Mobile's API error codes may include `400` (bad parameters), `402` (sending too many SMS too quickly) and `403` (authentication or authorization). The worker backs off on rate limiting and stops retrying on permanent authentication failures.
+Free Mobile's API error codes may include `400` (bad parameters), `402` (sending too many SMS too quickly) and `403` (authentication or authorization). Only explicit rate-limit errors (`402`/`429`) are automatically retried. HTTP `5xx`, transport failures and other ambiguous responses are marked `uncertain` to avoid duplicate SMS. The gateway does not guarantee handset delivery.
 
 ## 🔒 Security
 
@@ -166,11 +175,25 @@ python3 -m pytest -q
 
 Tests mock Free's API — no real SMS is sent.
 
+## 🧰 Operations & backups
+
+The private CLI supports status counts, SQLite-consistent backups and operator acknowledgement of unresolved alerts:
+
+```bash
+docker compose exec gateway python scripts/ops.py stats
+docker compose exec gateway python scripts/ops.py backup /data/alerts-backup.sqlite3
+docker compose cp gateway:/data/alerts-backup.sqlite3 ./alerts-backup.sqlite3
+chmod 600 ./alerts-backup.sqlite3
+```
+
+**Move backups off-host and test a restore.** Acknowledging an alert never resends it or confirms delivery. See the [French operations runbook](docs/OPERATIONS.fr.md) and [production checklist](docs/PRODUCTION_CHECKLIST.fr.md).
+
 ## 🛣️ Roadmap
 
 - [ ] Small authenticated web dashboard with delivery history
 - [ ] Telegram/email fallback channel
-- [ ] Metrics, retention policy and alert cleanup
+- [x] TTL, local retention policy and bounded backlog
+- [ ] Metrics, independent fallback and verified restore rehearsal
 - [ ] Multi-instance coordination and observability
 - [ ] Systemd/non-Docker deployment guide
 
